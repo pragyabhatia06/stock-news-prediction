@@ -7,6 +7,7 @@ import requests
 from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 import json
+import matplotlib.pyplot as plt
 
 @st.cache_data
 def read_model():
@@ -25,27 +26,48 @@ def make_predictions(features):
 # Define the API call function
 @st.cache_data
 def fetch_news():
-    # conn = http.client.HTTPConnection('api.mediastack.com')
-    # params = urllib.parse.urlencode({
-    #     'access_key': '65c5e9342fc45dc08165bf28b32d8ccf',
-    #     'categories': 'business',
-    #     'sort': 'published_desc',
-    #     'limit': 10,
-    #     "language": "en",
-    #     "source": "CNN",
-    #     "country": "gb",
-    # })
-    # conn.request('GET', '/v1/news?{}'.format(params))
-    # res = conn.getresponse()
-    # data = res.read()
-    # news_data = data.decode('utf-8')
-    # Load the JSON file
-    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    # Get today's date in YYYY-MM-DD format
+    today = datetime.today().strftime('%Y-%m-%d')
+    file_name = f'news_data_{today}.json'
 
-    with open(parent_dir + "/data/" + 'news_data.json', 'r', encoding='utf-8') as json_file:
-        news_data = json.load(json_file)
-    new_df = pd.json_normalize(news_data['data'])
-    return new_df
+    # Define the parent directory and file path
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(parent_dir, "data", file_name)
+
+    # Check if the file for today's date exists
+    if os.path.exists(file_path):
+        # Load the JSON file
+        with open(file_path, 'r', encoding='utf-8') as json_file:
+            news_data = json.load(json_file)
+        print(f"Loaded data from {file_name}")
+    else:
+        # Fetch news data from the API
+        conn = http.client.HTTPConnection('api.mediastack.com')
+        params = urllib.parse.urlencode({
+            'access_key': '65c5e9342fc45dc08165bf28b32d8ccf',
+            'categories': 'business',
+            'sort': 'published_desc',
+            "language": "en",
+            "country": "gb"
+        })
+        conn.request('GET', '/v1/news?{}'.format(params))
+        res = conn.getresponse()
+        data = res.read()
+        news_data = json.loads(data.decode('utf-8'))
+
+        # Save the fetched data to a JSON file
+        os.makedirs(os.path.join(parent_dir, "data"), exist_ok=True)
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(news_data, json_file, ensure_ascii=False, indent=4)
+        print(f"Fetched and saved data to {file_name}")
+
+    # Convert the JSON data to a DataFrame
+    news_df = pd.json_normalize(news_data['data'])
+    
+    # Optional: Convert 'published_at' to date if needed
+    news_df['date'] = pd.to_datetime(news_df['published_at']).dt.date
+    
+    return news_df
 
 # Function to process the news data and extract features
 @st.cache_data
@@ -64,12 +86,38 @@ def process_news_data(news_json):
 
 # Streamlit App
 st.image('images/universite-westminster.jpg', caption='University Of Westminster - Pragya', use_column_width=True,  channels="RGB", output_format="auto")
+st.image('images/FTSE.jpg', caption='University Of Westminster - Pragya', use_column_width=True,  channels="RGB", output_format="auto")
+
 st.title('Pragya MSC Project - Stock Prediction using News')
+
+@st.cache_data
+def stock_csv():
+    file_name = 'FTSE 100 Historical Results Price Data.csv'
+
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(parent_dir, "data", file_name)
+    df = pd.read_csv(file_path)
+    return df
+
+stocks_df = stock_csv()
+# Plotting the data
+st.subheader(f"Stock Prices from 2012 to 2024")
+
+# Calculate a reasonable width for the figure
+fig_width = 18 
+
+plt.figure(figsize=(20, 10))  # Adjust the width dynamically
+plt.plot(stocks_df['Date'], stocks_df['Price'], color='b', marker='o', linestyle='-', label='Price')
+plt.xlabel('Date')
+plt.ylabel('Close Price')
+plt.title('Stock Prices Over Time')
+st.pyplot(plt,use_container_width=True)
+
 
 st.write("""
 ## Fetching Latest Business News
 """)
-
+st.title('Enter the Number of news you want to fetch - ')
 # Button to fetch news
 if st.button('Fetch News'):
     news_df = fetch_news()
