@@ -15,3 +15,11 @@ sentencepiece
 nltk
 vaderSentiment
 statsmodels
+spacy
+contractions
+nltk
+gensim
+textblob
+catboost
+xgboost
+lightgbm
