@@ -5,13 +5,11 @@ import pandas as pd
 import pickle
 import requests
 from datetime import datetime
-from sklearn.feature_extraction.text import TfidfVectorizer
 import json
 import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from nltk.util import ngrams
 import spacy
 from nltk.stem import WordNetLemmatizer
 import os
@@ -34,40 +32,9 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from textblob import TextBlob
 import requests
 from bs4 import BeautifulSoup
-import asyncio
-import time
-from threading import Thread
+
  
-# Feature Engineering
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-
-# Machine Learning
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score, accuracy_score,classification_report,confusion_matrix
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.model_selection import cross_val_score, GridSearchCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
-from sklearn.linear_model import Ridge, Lasso, ElasticNet
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from sklearn.metrics import make_scorer, mean_squared_error
-
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, VotingRegressor
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.svm import SVR
-from catboost import CatBoostRegressor
-import xgboost as xgb
-import lightgbm as lgb
-import joblib
 
 # nltk.download('punkt_tab')
 stop_words = set(stopwords.words('english'))
@@ -142,7 +109,7 @@ def clean_text(text):
 
 @st.cache_data
 def read_model():
-    modelname = "ensemble_model_all_latest_updated.pkl"
+    modelname = "VotingRegressor_final.pkl"
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     path = parent_dir + "/model/" + modelname
     try:
@@ -462,27 +429,6 @@ def historical_data_csv():
     df = df.sort_values(by='date')
     return df
 
-df = historical_data_csv()
-# st.dataframe(df)
-forecast_duration = st.number_input('Enter the Forecast Duration',max_value=30,value=7)
-import numpy as np
-
-future_dates = pd.date_range(start=pd.Timestamp.today(), periods=forecast_duration, freq='D')
-future_dates = future_dates.strftime('%m/%d/%Y')
-future_df = pd.DataFrame({'date': future_dates})
-for col in df.columns:
-    if col != 'date':
-        future_df[col] = np.nan
-df_combined = pd.concat([df, future_df], ignore_index=True)
-
-# Step 6: Forward fill the NaN values with the last known value
-df_combined = df_combined.ffill()
-df_combined = df_combined[-forecast_duration:]
-df_combined = df_combined[df.columns]
-# model = read_model()
-# prediction_result = model.predict(df_combined)
-# st.dataframe(prediction_result)
-
 stocks_df = stock_csv()
 # Plotting the data
 # Assuming stocks_df is your DataFrame and it includes 'Date' and 'Price' columns
@@ -498,6 +444,89 @@ st.title("Stock Price Over Time")
 # Display the line chart using st.line_chart
 # Use st.line_chart to create a line chart
 st.line_chart(stocks_df[['Price', 'Open', 'High', 'Low']])
+
+
+
+df = historical_data_csv()
+st.dataframe(df)
+forecast_duration = st.number_input('Enter the Forecast Duration',max_value=365,value=7)
+import numpy as np
+
+future_dates = pd.date_range(start=pd.Timestamp.today(), periods=forecast_duration, freq='D')
+future_dates = future_dates.strftime('%m/%d/%Y')
+future_df = pd.DataFrame({'date': future_dates})
+for col in df.columns:
+    if col != 'date':
+        future_df[col] = np.nan
+df_combined = pd.concat([df, future_df], ignore_index=True)
+
+@st.cache_data
+# Function to fill NaN values using the mean of the previous `forecast_duration` values
+def fill_with_previous_forecast_duration(series, forecast_duration=7):
+    filled_series = series.copy()
+    for i in range(len(series)):
+        if pd.isna(series.iloc[i]):  # Check if the current value is NaN
+            # Get previous `forecast_duration` values
+            previous_values = series[max(0, i-forecast_duration):i]
+            if len(previous_values) > 0:  # Ensure there are values to calculate the mean
+                # Calculate the mean of the previous values, ignoring NaN values
+                mean_value = previous_values.mean()
+                filled_series.iloc[i] = mean_value
+    return filled_series
+
+# Apply the function to each column in the DataFrame
+for col in df_combined.columns:
+    # print(f"Processing column: {col}")
+    df_combined[col] = fill_with_previous_forecast_duration(df_combined[col])
+
+
+# Forward fill the NaN values with the last known value
+df_combined.fillna(method='ffill', inplace=True)
+df_combined.fillna(method='bfill', inplace=True)
+df_combined = df_combined.fillna(df_combined.mean(numeric_only=True))
+
+df_combined = df_combined[-forecast_duration:]
+# df_combined = df_combined[df.columns]
+df_combined.set_index('date', inplace=True)
+# Standardize the features manually
+scaler = StandardScaler()
+
+# st.dataframe(df_combined)
+# Fit the scaler on the training data and transform the training data
+X_train_scaled = scaler.fit_transform(df_combined)
+
+# st.dataframe(X_train_scaled)
+
+model = read_model()
+# st.write(len(df_combined.columns))
+prediction_result = model.predict(X_train_scaled)
+
+st.dataframe(prediction_result)
+
+#  -----------------------------
+
+# Assuming stock_df is your original DataFrame with time series data and df_combined is the truncated DataFrame
+# st.write('test')
+last_data = stocks_df[-forecast_duration:]
+# st.dataframe(last_data)
+# Ensure df_combined and prediction_result are aligned in terms of index
+# If df_combined is already aligned, we create a new DataFrame for the predictions
+prediction_df = pd.DataFrame(prediction_result, index=df_combined.index, columns=['Predicted'])
+# st.dataframe(prediction_df)
+# Combine the original last data and the prediction
+combined_df = pd.concat([last_data, prediction_df], axis=1)
+
+# Step 1: Convert time index to a uniform date format (e.g., YYYY-MM-DD)
+combined_df.index = pd.to_datetime(combined_df.index).strftime('%Y-%m-%d')
+
+# Step 2: Merge the "Price" and "Predicted" columns
+combined_df['Price_Merged'] = combined_df['Price'].combine_first(combined_df['Predicted'])
+
+# Drop the individual "Price" and "Predicted" columns if needed
+combined_df = combined_df.drop(columns=['Price', 'Predicted'])
+
+st.line_chart(combined_df['Price_Merged'])
+# ------------------------------------------
 
 import requests
 from bs4 import BeautifulSoup
