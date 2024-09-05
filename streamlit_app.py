@@ -6,8 +6,6 @@ import pickle
 import requests
 from datetime import datetime
 import json
-import matplotlib.pyplot as plt
-import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import spacy
@@ -21,7 +19,6 @@ from datetime import datetime
 import re
 import string
 import contractions
-import gensim
 from gensim import corpora
 from gensim.models.ldamodel import LdaModel
 from collections import defaultdict
@@ -32,7 +29,6 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from textblob import TextBlob
 import requests
 from bs4 import BeautifulSoup
-
  
 from sklearn.preprocessing import StandardScaler
 
