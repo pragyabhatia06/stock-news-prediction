@@ -31,6 +31,7 @@ import requests
 from bs4 import BeautifulSoup
  
 from sklearn.preprocessing import StandardScaler
+import spacy
 
 # nltk.download('punkt_tab')
 stop_words = set(stopwords.words('english'))
