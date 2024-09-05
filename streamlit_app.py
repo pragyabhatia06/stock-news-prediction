@@ -131,7 +131,6 @@ def make_predictions(features):
 @st.cache_data
 def fetch_news():
     stop_words = set(stopwords.words('english'))
-    nlp = spacy.load("en_core_web_sm")
 
     add_words = {'news','read','story','world','newsbrief','huffpost','short',
             'wrapup'}
@@ -448,7 +447,8 @@ st.line_chart(stocks_df[['Price', 'Open', 'High', 'Low']])
 
 
 df = historical_data_csv()
-st.dataframe(df)
+# st.dataframe(df)
+st.title('Forecast Duration')
 forecast_duration = st.number_input('Enter the Forecast Duration',max_value=365,value=7)
 import numpy as np
 
@@ -524,7 +524,11 @@ combined_df['Price_Merged'] = combined_df['Price'].combine_first(combined_df['Pr
 
 # Drop the individual "Price" and "Predicted" columns if needed
 combined_df = combined_df.drop(columns=['Price', 'Predicted'])
+# Get today's date
+today_date = datetime.today().strftime('%Y-%m-%d')
 
+# Print the heading with today's date
+st.title(f"Stock Prediction - {today_date}")
 st.line_chart(combined_df['Price_Merged'])
 # ------------------------------------------
 
