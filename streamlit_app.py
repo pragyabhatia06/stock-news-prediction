@@ -400,7 +400,9 @@ def stock_csv():
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(parent_dir, "data", file_name)
     df = pd.read_csv(file_path)
-    df['Date'] = pd.to_datetime(df['Date'])  # Ensure 'Date' is datetime format
+   # df['Date'] = pd.to_datetime(df['Date'])  # Ensure 'Date' is datetime format --changed
+    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
+
     df['time_index'] = df['Date']
     # Convert 'Date' to index
     df.set_index('time_index', inplace=True)
@@ -477,9 +479,13 @@ for col in df_combined.columns:
     df_combined[col] = fill_with_previous_forecast_duration(df_combined[col])
 
 
-# Forward fill the NaN values with the last known value
-df_combined.fillna(method='ffill', inplace=True)
-df_combined.fillna(method='bfill', inplace=True)
+# Forward fill the NaN values with the last known value --changed
+#df_combined.fillna(method='ffill', inplace=True)
+#df_combined.fillna(method='bfill', inplace=True)
+###########
+df_combined.ffill(inplace=True) 
+df_combined.bfill(inplace=True)
+#########
 df_combined = df_combined.fillna(df_combined.mean(numeric_only=True))
 
 df_combined = df_combined[-forecast_duration:]
@@ -519,8 +525,19 @@ combined_df.index = pd.to_datetime(combined_df.index).strftime('%Y-%m-%d')
 # Step 2: Merge the "Price" and "Predicted" columns
 combined_df['Price_Merged'] = combined_df['Price'].combine_first(combined_df['Predicted'])
 
+# New Code: Ensure 'Price_Merged' is numeric to avoid Arrow serialization issues --changed
+combined_df['Price_Merged'] = pd.to_numeric(combined_df['Price_Merged'], errors='coerce')
+
 # Drop the individual "Price" and "Predicted" columns if needed
 combined_df = combined_df.drop(columns=['Price', 'Predicted'])
+
+# Fill any remaining NaN values --changed
+#combined_df.fillna(method='ffill', inplace=True)
+#combined_df.fillna(method='bfill', inplace=True)
+####
+combined_df.ffill(inplace=True)
+combined_df.bfill(inplace=True)
+####
 # Get today's date
 today_date = datetime.today().strftime('%Y-%m-%d')
 
