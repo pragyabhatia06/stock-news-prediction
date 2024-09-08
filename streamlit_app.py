@@ -34,50 +34,31 @@ import nltk
  
 from sklearn.preprocessing import StandardScaler
 import spacy
+import shutil
 
+# Define custom NLTK data directory inside your project directory
+nltk_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nltk_data")
 
-# Define the parent directory (the directory where this script is located)
-parent_dir = os.path.dirname(os.path.abspath(__file__))
+# Always delete the nltk_data directory if it exists before recreating it
+if os.path.exists(nltk_data_dir):
+    shutil.rmtree(nltk_data_dir)  # Remove the directory and all its contents
 
-# Define the nltk_data directory inside your parent_dir
-nltk_data_dir = os.path.join(parent_dir, "nltk_data")
+# Recreate the nltk_data directory
+os.makedirs(nltk_data_dir, exist_ok=True)
 
-# Ensure the nltk_data directory exists
-if not os.path.exists(nltk_data_dir):
-    os.makedirs(nltk_data_dir)
-
-# Set the custom NLTK data path to the nltk_data_dir
+# Add the custom NLTK data path to nltk.data.path
 nltk.data.path.append(nltk_data_dir)
 
-# Function to download the necessary NLTK data
+# Function to download NLTK resources
 @st.cache_resource
 def download_nltk_data():
-    try:
-        nltk.data.find('tokenizers/punkt')
-    except LookupError:
-        nltk.download('punkt', download_dir=nltk_data_dir)
-
-    try:
-        nltk.data.find('tokenizers/punkt_tab')
-    except LookupError:
-        nltk.download('punkt_tab', download_dir=nltk_data_dir)
-
-    try:
-        nltk.data.find('tokenizers/vader_lexicon')
-    except LookupError:
-        nltk.download('vader_lexicon', download_dir=nltk_data_dir)
+    nltk.download('punkt', download_dir=nltk_data_dir)
+    nltk.download('stopwords', download_dir=nltk_data_dir)
+    nltk.download('wordnet', download_dir=nltk_data_dir)
+    nltk.download('punkt_tab', download_dir=nltk_data_dir)
+    nltk.download('vader_lexicon', download_dir=nltk_data_dir)
         
-    try:
-        nltk.data.find('corpora/stopwords')
-    except LookupError:
-        nltk.download('stopwords', download_dir=nltk_data_dir)
-        
-    try:
-        nltk.data.find('corpora/wordnet')
-    except LookupError:
-        nltk.download('wordnet', download_dir=nltk_data_dir)
-
-# Call the download function to ensure resources are downloaded
+# Ensure resources are downloaded
 download_nltk_data()
 
 # Load stopwords from the custom path
