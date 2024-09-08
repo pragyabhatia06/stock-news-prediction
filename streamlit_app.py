@@ -3,6 +3,7 @@ import os
 import http.client, urllib.parse
 import pandas as pd
 import pickle
+import numpy as np
 import requests
 from datetime import datetime
 import json
@@ -29,13 +30,69 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from textblob import TextBlob
 import requests
 from bs4 import BeautifulSoup
+import nltk
  
 from sklearn.preprocessing import StandardScaler
 import spacy
 
-# nltk.download('punkt_tab')
+
+# Define the parent directory (the directory where this script is located)
+parent_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Define the nltk_data directory inside your parent_dir
+nltk_data_dir = os.path.join(parent_dir, "nltk_data")
+
+# Ensure the nltk_data directory exists
+if not os.path.exists(nltk_data_dir):
+    os.makedirs(nltk_data_dir)
+
+# Set the custom NLTK data path to the nltk_data_dir
+nltk.data.path.append(nltk_data_dir)
+
+# Function to download the necessary NLTK data
+@st.cache_resource
+def download_nltk_data():
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        nltk.download('punkt', download_dir=nltk_data_dir)
+
+    try:
+        nltk.data.find('tokenizers/punkt_tab')
+    except LookupError:
+        nltk.download('punkt_tab', download_dir=nltk_data_dir)
+
+    try:
+        nltk.data.find('tokenizers/vader_lexicon')
+    except LookupError:
+        nltk.download('vader_lexicon', download_dir=nltk_data_dir)
+        
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords', download_dir=nltk_data_dir)
+        
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        nltk.download('wordnet', download_dir=nltk_data_dir)
+
+# Call the download function to ensure resources are downloaded
+download_nltk_data()
+
+# Load stopwords from the custom path
 stop_words = set(stopwords.words('english'))
-nlp = spacy.load("en_core_web_sm")
+
+# nlp = spacy.load("en_core_web_sm")
+from spacy.cli import download
+
+# Try to load the model and download if not present
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    st.warning("Model 'en_core_web_sm' not found. Downloading it now...")
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
 
 @st.cache_data
 # Function to clean text
@@ -438,6 +495,13 @@ stocks_df = stocks_df.sort_index(ascending=True)
 
 # Streamlit app
 st.title("Stock Price Over Time")
+# Convert columns to numeric
+# Remove commas from the columns and convert to numeric
+stocks_df[['Price', 'Open', 'High', 'Low']] = stocks_df[['Price', 'Open', 'High', 'Low']].replace({',': ''}, regex=True)
+
+# Now convert to numeric
+stocks_df[['Price', 'Open', 'High', 'Low']] = stocks_df[['Price', 'Open', 'High', 'Low']].apply(pd.to_numeric, errors='coerce')
+
 
 # Display the line chart using st.line_chart
 # Use st.line_chart to create a line chart
@@ -446,10 +510,9 @@ st.line_chart(stocks_df[['Price', 'Open', 'High', 'Low']])
 
 
 df = historical_data_csv()
-# st.dataframe(df)
+# # st.dataframe(df)
 st.title('Forecast Duration')
 forecast_duration = st.number_input('Enter the Forecast Duration',max_value=365,value=7)
-import numpy as np
 
 future_dates = pd.date_range(start=pd.Timestamp.today(), periods=forecast_duration, freq='D')
 future_dates = future_dates.strftime('%m/%d/%Y')
@@ -502,9 +565,10 @@ X_train_scaled = scaler.fit_transform(df_combined)
 
 model = read_model()
 # st.write(len(df_combined.columns))
+prediction_result = stocks_df[-forecast_duration:]
 prediction_result = model.predict(X_train_scaled)
 
-st.dataframe(prediction_result)
+# st.dataframe(prediction_result)
 
 #  -----------------------------
 
